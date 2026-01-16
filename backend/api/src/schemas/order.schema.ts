@@ -6,7 +6,7 @@ export type OrderDocument = Order & Document;
 @Schema({ _id: false })
 export class OrderItem {
   @Prop({ required: true })
-  id: string;
+  item_id: number;
 
   @Prop({ required: true })
   product_name: string;
@@ -15,10 +15,7 @@ export class OrderItem {
   quantity: number;
 
   @Prop({ required: true })
-  unit_price: number;
-
-  @Prop({ required: true })
-  subtotal: number;
+  price: number;
 }
 
 export const OrderItemSchema = SchemaFactory.createForClass(OrderItem);
@@ -69,7 +66,6 @@ export class Order {
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
 
-// Index for faster queries
 OrderSchema.index({ order_id: 1 });
 OrderSchema.index({ current_status: 1 });
 OrderSchema.index({ customer_name: 1 });

@@ -64,19 +64,16 @@ export class OrdersGateway
     }
   }
 
-  // Broadcast order update to all connected clients
   broadcastOrderUpdate(order: Order) {
     this.logger.log(`Broadcasting update for order ${order.order_id}`);
     this.server.emit('orderUpdate', order);
   }
 
-  // Broadcast order creation to all connected clients
   broadcastOrderCreated(order: Order) {
     this.logger.log(`Broadcasting new order ${order.order_id}`);
     this.server.emit('orderCreated', order);
   }
 
-  // Broadcast order deletion to all connected clients
   broadcastOrderDeleted(orderId: number) {
     this.logger.log(`Broadcasting deletion of order ${orderId}`);
     this.server.emit('orderDeleted', { orderId });

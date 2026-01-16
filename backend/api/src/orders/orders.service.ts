@@ -7,7 +7,6 @@ import { Order, OrderDocument } from '../schemas/order.schema';
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
 
-  // Mapeamento de status_id para status_code
   private readonly statusMap = {
     1: { code: 'pending', name: 'Pendente' },
     2: { code: 'processing', name: 'Processando' },
@@ -53,33 +52,17 @@ export class OrdersService {
         notes: notes || '',
       };
 
-      // Buscar ou criar o pedido
-      let order = await this.orderModel.findOne({ order_id: orderId });
-
+      const order = await this.orderModel.findOne({ order_id: orderId });
       if (!order) {
-        this.logger.log(`Order ${orderId} not found, creating new order`);
-
-        // Se o pedido não existe, buscar dados do ERP (simulado por enquanto)
-        // Em produção, você precisaria ter um mecanismo para buscar dados completos
-        order = new this.orderModel({
-          order_id: orderId,
-          customer_name: 'Cliente Desconhecido',
-          order_date: new Date(),
-          total: 0,
-          items: [],
-          status_history: [statusHistory],
-          current_status: status.code,
-          current_status_name: status.name,
-        });
-
-        return order.save();
+        this.logger.warn(
+          `Order ${orderId} not found. Cannot update status. Order should be created via orders topic first.`,
+        );
+        return null;
       }
 
-      // Atualizar pedido existente
       order.status_history.push(statusHistory);
       order.current_status = status.code;
       order.current_status_name = status.name;
-
       return order.save();
     } catch (error) {
       this.logger.error(`Error updating order ${orderId}:`, error);
@@ -101,5 +84,102 @@ export class OrdersService {
 
   async deleteOrder(orderId: number): Promise<void> {
     await this.orderModel.deleteOne({ order_id: orderId }).exec();
+  }
+
+  async upsertOrderBase(orderData: {
+    order_id: number;
+    customer_name: string;
+    order_date: Date;
+    total: number;
+  }): Promise<Order> {
+    const { order_id, customer_name, order_date, total } = orderData;
+
+    let order = await this.orderModel.findOne({ order_id });
+
+    if (!order) {
+      order = new this.orderModel({
+        order_id,
+        customer_name,
+        order_date,
+        total,
+        items: [],
+        status_history: [],
+        current_status: 'pending',
+        current_status_name: 'Pendente',
+      });
+      this.logger.log(`Creating new order ${order_id}`);
+    } else {
+      order.customer_name = customer_name;
+      order.order_date = order_date;
+      order.total = total;
+      this.logger.log(`Updating order ${order_id}`);
+    }
+
+    return order.save();
+  }
+
+  async upsertOrderItem(itemData: {
+    item_id: number;
+    order_id: number;
+    product_name: string;
+    quantity: number;
+    price: number;
+  }): Promise<Order | null> {
+    try {
+      const { item_id, order_id, product_name, quantity, price } = itemData;
+
+      const order = await this.orderModel.findOne({ order_id });
+      if (!order) {
+        this.logger.warn(
+          `Order ${order_id} not found. Cannot add item. Order should be created first.`,
+        );
+        return null;
+      }
+
+      const existingItemIndex = order.items.findIndex(
+        (item) => item.item_id === item_id,
+      );
+
+      const itemObject = {
+        item_id,
+        product_name,
+        quantity,
+        price,
+      };
+
+      if (existingItemIndex >= 0) {
+        order.items[existingItemIndex] = itemObject;
+        this.logger.log(`Updated item ${item_id} in order ${order_id}`);
+      } else {
+        order.items.push(itemObject);
+        this.logger.log(`Added item ${item_id} to order ${order_id}`);
+      }
+
+      return order.save();
+    } catch (error) {
+      this.logger.error('Error upserting order item:', error);
+      return null;
+    }
+  }
+
+  async removeOrderItem(
+    orderId: number,
+    itemId: number,
+  ): Promise<Order | null> {
+    try {
+      const order = await this.orderModel.findOne({ order_id: orderId });
+      if (!order) {
+        this.logger.warn(`Order ${orderId} not found.`);
+        return null;
+      }
+
+      order.items = order.items.filter((item) => item.item_id !== itemId);
+      this.logger.log(`Removed item ${itemId} from order ${orderId}`);
+
+      return order.save();
+    } catch (error) {
+      this.logger.error('Error removing order item:', error);
+      return null;
+    }
   }
 }

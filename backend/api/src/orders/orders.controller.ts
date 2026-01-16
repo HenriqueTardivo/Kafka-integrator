@@ -15,14 +15,4 @@ export class OrdersController {
   async findOne(@Param('id') id: string): Promise<Order | null> {
     return this.ordersService.findOne(parseInt(id));
   }
-
-  @Post()
-  async create(@Body() orderData: Partial<Order>): Promise<Order> {
-    return this.ordersService.create(orderData);
-  }
-
-  @Delete(':id')
-  async delete(@Param('id') id: string): Promise<void> {
-    return this.ordersService.deleteOrder(parseInt(id));
-  }
 }
