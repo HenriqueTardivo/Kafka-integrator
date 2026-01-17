@@ -20,11 +20,11 @@ class WebSocketService {
     });
 
     this.socket.on("connect", () => {
-      console.log("WebSocket connected");
+      console.log("[WebSocket] Connected successfully");
     });
 
     this.socket.on("disconnect", () => {
-      console.log("WebSocket disconnected");
+      console.log("[WebSocket] Disconnected");
     });
 
     this.socket.on("orderCreated", (order: Order) => {

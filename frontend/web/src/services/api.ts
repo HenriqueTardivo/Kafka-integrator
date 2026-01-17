@@ -16,7 +16,7 @@ export interface OrderItem {
   item_id: number;
   product_name: string;
   quantity: number;
-  price: number;
+  unit_price: number;
 }
 
 export interface StatusHistory {

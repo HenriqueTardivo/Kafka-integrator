@@ -63,7 +63,7 @@ export class OrdersService {
       order.status_history.push(statusHistory);
       order.current_status = status.code;
       order.current_status_name = status.name;
-      return order.save();
+      return order.save({ validateModifiedOnly: true });
     } catch (error) {
       this.logger.error(`Error updating order ${orderId}:`, error);
       return null;
@@ -123,10 +123,11 @@ export class OrdersService {
     order_id: number;
     product_name: string;
     quantity: number;
-    price: number;
+    unit_price: number;
   }): Promise<Order | null> {
     try {
-      const { item_id, order_id, product_name, quantity, price } = itemData;
+      const { item_id, order_id, product_name, quantity, unit_price } =
+        itemData;
 
       const order = await this.orderModel.findOne({ order_id });
       if (!order) {
@@ -144,7 +145,7 @@ export class OrdersService {
         item_id,
         product_name,
         quantity,
-        price,
+        unit_price,
       };
 
       if (existingItemIndex >= 0) {

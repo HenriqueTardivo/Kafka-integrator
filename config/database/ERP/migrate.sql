@@ -21,7 +21,7 @@ CREATE TABLE orders (
     id SERIAL PRIMARY KEY,
     customer_name VARCHAR(100) NOT NULL,
     order_date DATE NOT NULL,
-    total DECIMAL(10, 2) NOT NULL,
+    total DOUBLE PRECISION NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -34,8 +34,8 @@ CREATE TABLE order_items (
     order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
     product_name VARCHAR(200) NOT NULL,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
-    unit_price DECIMAL(10, 2) NOT NULL CHECK (unit_price >= 0),
-    subtotal DECIMAL(10, 2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
+    unit_price DOUBLE PRECISION NOT NULL CHECK (unit_price >= 0),
+    subtotal DOUBLE PRECISION GENERATED ALWAYS AS (quantity * unit_price) STORED,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -5,8 +5,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Kafka, Consumer, EachMessagePayload } from 'kafkajs';
-import { OrdersService } from '../orders/orders.service';
-import { OrdersGateway } from '../websocket/orders.gateway';
+import { OrdersTopicService } from './topics/orders-topic.service';
+import { ItemsTopicService } from './topics/items-topic.service';
+import { StatusTopicService } from './topics/status-topic.service';
 
 @Injectable()
 export class KafkaService implements OnModuleInit, OnModuleDestroy {
@@ -15,15 +16,15 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   private consumer: Consumer;
 
   private readonly topics = {
-    orders: process.env.KAFKA_TOPIC_ORDERS || 'erp.public.orders',
-    orderItems: process.env.KAFKA_TOPIC_ORDER_ITEMS || 'erp.public.order_items',
-    orderStatusHistory:
-      process.env.KAFKA_TOPIC_STATUS || 'erp.public.order_status_history',
+    orders: 'erp.public.orders',
+    orderItems: 'erp.public.order_items',
+    orderStatusHistory: 'erp.public.order_status_history',
   };
 
   constructor(
-    private readonly ordersService: OrdersService,
-    private readonly ordersGateway: OrdersGateway,
+    private readonly ordersTopicService: OrdersTopicService,
+    private readonly itemsTopicService: ItemsTopicService,
+    private readonly statusTopicService: StatusTopicService,
   ) {
     this.kafka = new Kafka({
       clientId: 'nestjs-consumer',
@@ -85,124 +86,54 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const value = message.value?.toString();
-      if (!value) return;
+      const key = message.key?.toString();
 
       this.logger.log(
         `Received message from topic ${topic}, partition ${partition}`,
       );
 
-      const debeziumEvent = JSON.parse(value);
-      const { op, after, before } = debeziumEvent.payload || debeziumEvent;
+      if (!value || value === '') {
+        if (key) {
+          const keyData = JSON.parse(key);
+          this.logger.log(`Delete operation detected for ID ${keyData.id}`);
+
+          switch (topic) {
+            case this.topics.orders:
+              await this.ordersTopicService.handleDelete(keyData.id);
+              break;
+            case this.topics.orderItems:
+              await this.itemsTopicService.handleDelete(
+                keyData.id,
+                keyData.order_id,
+              );
+              break;
+            case this.topics.orderStatusHistory:
+              await this.statusTopicService.handleDelete(keyData.id);
+              break;
+          }
+        }
+        return;
+      }
+
+      const parsedMessage = JSON.parse(value);
+      this.logger.log(`Raw message: ${JSON.stringify(parsedMessage)}`);
 
       switch (topic) {
         case this.topics.orders:
-          await this.handleOrderEvent(op, after, before);
+          await this.ordersTopicService.handleCreateOrUpdate(parsedMessage);
           break;
         case this.topics.orderItems:
-          await this.handleOrderItemEvent(op, after, before);
+          await this.itemsTopicService.handleCreateOrUpdate(parsedMessage);
           break;
         case this.topics.orderStatusHistory:
-          await this.handleStatusHistoryEvent(op, after, before);
+          await this.statusTopicService.handleCreateOrUpdate(parsedMessage);
           break;
         default:
           this.logger.warn(`Unknown topic: ${topic}`);
       }
     } catch (error) {
       this.logger.error('Error processing message:', error);
-    }
-  }
-
-  private async handleOrderEvent(op: string, after: any, before: any) {
-    try {
-      if (op === 'c' || op === 'u') {
-        // Create or Update order
-        const orderData = {
-          order_id: after.order_id,
-          customer_name: after.customer_name,
-          order_date: new Date(after.order_date),
-          total: parseFloat(after.total || '0'),
-        };
-
-        this.logger.log(
-          `Processing ${op === 'c' ? 'create' : 'update'} for order ${orderData.order_id}`,
-        );
-
-        const order = await this.ordersService.upsertOrderBase(orderData);
-        if (order) {
-          this.ordersGateway.broadcastOrderUpdate(order);
-          this.logger.log(`Order ${order.order_id} synchronized`);
-        }
-      } else if (op === 'd') {
-        // Delete order
-        this.logger.log(`Deleting order ${before.order_id}`);
-        await this.ordersService.deleteOrder(before.order_id);
-      }
-    } catch (error) {
-      this.logger.error('Error handling order event:', error);
-    }
-  }
-
-  private async handleOrderItemEvent(op: string, after: any, before: any) {
-    try {
-      if (op === 'c' || op === 'u') {
-        // Add or Update order item
-        const itemData = {
-          item_id: after.item_id,
-          order_id: after.order_id,
-          product_name: after.product_name,
-          quantity: after.quantity,
-          price: parseFloat(after.price || '0'),
-        };
-
-        this.logger.log(
-          `Processing item ${itemData.item_id} for order ${itemData.order_id}`,
-        );
-
-        const order = await this.ordersService.upsertOrderItem(itemData);
-        if (order) {
-          this.ordersGateway.broadcastOrderUpdate(order);
-          this.logger.log(`Order ${order.order_id} item updated`);
-        }
-      } else if (op === 'd') {
-        this.logger.log(
-          `Removing item ${before.item_id} from order ${before.order_id}`,
-        );
-        await this.ordersService.removeOrderItem(
-          before.order_id,
-          before.item_id,
-        );
-      }
-    } catch (error) {
-      this.logger.error('Error handling order item event:', error);
-    }
-  }
-
-  private async handleStatusHistoryEvent(op: string, after: any, before: any) {
-    try {
-      if (op === 'c' || op === 'u') {
-        const orderId = after.order_id;
-        const statusId = after.status_id;
-        const changedAt = new Date(after.changed_at);
-        const notes = after.notes;
-
-        this.logger.log(`Processing status change for order ${orderId}`);
-
-        const updatedOrder = await this.ordersService.updateOrderStatus(
-          orderId,
-          statusId,
-          changedAt,
-          notes,
-        );
-
-        if (updatedOrder) {
-          this.ordersGateway.broadcastOrderUpdate(updatedOrder);
-          this.logger.log(`Order ${orderId} status updated and broadcasted`);
-        }
-      } else if (op === 'd') {
-        this.logger.log('Delete operation on status history:', before);
-      }
-    } catch (error) {
-      this.logger.error('Error handling status history event:', error);
+      this.logger.error('Stack:', error.stack);
     }
   }
 }

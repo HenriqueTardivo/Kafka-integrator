@@ -221,7 +221,7 @@ export function OrderDetail() {
                         color: "#111827",
                       }}
                     >
-                      R$ {item.price.toFixed(2)}
+                      R$ {item.unit_price.toFixed(2)}
                     </td>
                     <td
                       style={{
@@ -231,7 +231,7 @@ export function OrderDetail() {
                         fontWeight: "600",
                       }}
                     >
-                      R$ {(item.price * item.quantity).toFixed(2)}
+                      R$ {(item.unit_price * item.quantity).toFixed(2)}
                     </td>
                   </tr>
                 ))}

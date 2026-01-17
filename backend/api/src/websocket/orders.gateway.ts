@@ -64,9 +64,9 @@ export class OrdersGateway
     }
   }
 
-  broadcastOrderUpdate(order: Order) {
+  broadcastOrderUpdated(order: Order) {
     this.logger.log(`Broadcasting update for order ${order.order_id}`);
-    this.server.emit('orderUpdate', order);
+    this.server.emit('orderUpdated', order);
   }
 
   broadcastOrderCreated(order: Order) {

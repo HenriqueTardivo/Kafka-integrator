@@ -21,9 +21,18 @@ export function useOrders() {
     };
 
     const handleOrderUpdated = (order: Order) => {
-      setOrders((prev) =>
-        prev.map((o) => (o.order_id === order.order_id ? order : o))
-      );
+      setOrders((prev) => {
+        const existingIndex = prev.findIndex(
+          (o) => o.order_id === order.order_id,
+        );
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = order;
+          return updated;
+        } else {
+          return [...prev, order];
+        }
+      });
     };
 
     const handleOrderDeleted = (data: { orderId: number }) => {
