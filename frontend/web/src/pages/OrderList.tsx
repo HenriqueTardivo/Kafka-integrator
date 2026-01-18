@@ -5,7 +5,7 @@ const statusColors = {
   pending: "#f59e0b",
   processing: "#3b82f6",
   completed: "#10b981",
-  cancelled: "#ef4444",
+  returned: "#ef4444",
 };
 
 export function OrderList() {

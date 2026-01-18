@@ -12,6 +12,8 @@ export class OrdersService {
     2: { code: 'processing', name: 'Processando' },
     3: { code: 'completed', name: 'Concluído' },
     4: { code: 'cancelled', name: 'Cancelado' },
+    5: { code: 'dispatched', name: 'Despachado' },
+    6: { code: 'returned', name: 'Devolvido' },
   };
 
   constructor(
@@ -19,7 +21,9 @@ export class OrdersService {
   ) {}
 
   async findAll(): Promise<Order[]> {
-    return this.orderModel.find().exec();
+    return this.orderModel
+      .find({ current_status: { $nin: ['cancelled', 'dispatched'] } })
+      .exec();
   }
 
   async findOne(orderId: number): Promise<Order | null> {

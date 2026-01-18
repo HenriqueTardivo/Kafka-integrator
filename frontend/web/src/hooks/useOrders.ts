@@ -22,6 +22,13 @@ export function useOrders() {
 
     const handleOrderUpdated = (order: Order) => {
       setOrders((prev) => {
+        if (
+          order.current_status === "dispatched" ||
+          order.current_status === "cancelled"
+        ) {
+          return prev.filter((o) => o.order_id !== order.order_id);
+        }
+
         const existingIndex = prev.findIndex(
           (o) => o.order_id === order.order_id,
         );

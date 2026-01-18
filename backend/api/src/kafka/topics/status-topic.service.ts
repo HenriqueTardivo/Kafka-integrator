@@ -34,15 +34,27 @@ export class StatusTopicService {
         data.notes,
       );
 
-      if (updatedOrder) {
-        this.ordersGateway.broadcastOrderUpdated(updatedOrder);
-        this.logger.log(
-          `Order ${data.order_id} status updated and broadcasted`,
-        );
+      if (!updatedOrder) {
+        return;
       }
+
+      if (this.deletedStatus(updatedOrder.current_status)) {
+        this.ordersGateway.broadcastOrderDeleted(data.order_id);
+        this.logger.log(
+          `Order ${data.order_id} marked as ${updatedOrder.current_status} and removed from list`,
+        );
+        return;
+      }
+
+      this.ordersGateway.broadcastOrderUpdated(updatedOrder);
+      this.logger.log(`Order ${data.order_id} status updated and broadcasted`);
     } catch (error) {
       this.logger.error('Error handling status history event:', error);
       this.logger.error('Data received:', JSON.stringify(data));
     }
+  }
+
+  private deletedStatus(current_status?: string): boolean {
+    return current_status === 'dispatched' || current_status === 'cancelled';
   }
 }

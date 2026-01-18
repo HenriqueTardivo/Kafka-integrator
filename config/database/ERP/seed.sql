@@ -6,6 +6,8 @@ INSERT INTO order_status (status_code, status_name, description) VALUES
 ('pending', 'Pendente', 'Pedido aguardando processamento'),
 ('processing', 'Processando', 'Pedido em processamento'),
 ('completed', 'Concluído', 'Pedido concluído com sucesso'),
+('dispatched', 'Despachado', 'Pedido despachado para entrega'),
+('returned', 'Devolvido', 'Pedido devolvido pelo cliente'),
 ('cancelled', 'Cancelado', 'Pedido cancelado');
 
 -- ============================================
